@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-sans: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #0f766e;
+  --color-ink-deep: #115e59;
+  --color-paper: #f7f4ef;
+  --color-slate: #1e293b;
+  --color-warn: #b45309;
+  --color-warn-soft: #fff7ed;
+  --color-line: #d6d3d1;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-slate);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(15, 118, 110, 0.12), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(30, 41, 59, 0.08), transparent 55%),
+    linear-gradient(180deg, #eef2f0 0%, var(--color-paper) 45%, #ebe6df 100%);
+  background-attachment: fixed;
+}
+
+body::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(30, 41, 59, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 41, 59, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+}
+
+.brand {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+@keyframes drop-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.01); }
+  100% { transform: scale(1); }
+}
+.drop-accepted {
+  animation: drop-pulse 420ms ease;
+  box-shadow: 0 0 0 2px var(--color-ink);
+}
+
+@keyframes flag-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.flag-enter {
+  animation: flag-in 320ms ease-out;
+}
+
+@keyframes extract-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.72; }
+}
+.extracting {
+  animation: extract-pulse 1.1s ease-in-out infinite;
+}
