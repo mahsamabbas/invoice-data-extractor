@@ -57,6 +57,41 @@ async def test_extract_ollama_down_is_503():
 
 
 @pytest.mark.asyncio
+async def test_extract_unreadable_image_yields_flag_not_502():
+    """Vision model flags an unreadable image with null line_items and
+    currency-formatted numeric strings; this must not raise a 502 and must
+    surface the unreadable_image flag via apply_flags."""
+    payload = {
+        "message": {
+            "content": json.dumps(
+                {
+                    "vendor": None,
+                    "invoice_number": None,
+                    "currency": None,
+                    "line_items": None,
+                    "total": "$--",
+                    "unreadable": True,
+                }
+            )
+        }
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.endswith("/api/chat")
+        return httpx.Response(200, json=payload)
+
+    settings = Settings(ollama_base_url="http://ollama.test")
+    async with httpx.AsyncClient(transport=_mock_transport(handler)) as client:
+        out = await extract_invoice(b"fake-png", "image/png", settings, client=client)
+    assert out.line_items == []
+    assert out.total is None
+    codes = {f.code for f in out.flags}
+    assert "unreadable_image" in codes
+    assert "missing_total" in codes
+    assert "empty_line_items" in codes
+
+
+@pytest.mark.asyncio
 async def test_extract_bad_json_after_repair_is_502():
     calls = {"n": 0}
 
