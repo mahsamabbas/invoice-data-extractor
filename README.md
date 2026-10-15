@@ -56,13 +56,13 @@ ollama pull qwen2.5vl
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
-cp .env.example .env
+cp ../.env.example .env
 uvicorn app.main:app --port 8006 --reload
 
 # frontend (new terminal)
 cd frontend
 npm install
-cp .env.example .env.local
+cp ../.env.example .env.local
 npm run dev -- --port 3006
 ```
 
