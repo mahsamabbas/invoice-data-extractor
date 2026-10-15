@@ -8,10 +8,15 @@ describe("formatMoney", () => {
   it("shows em dash for null", () => {
     expect(formatMoney("USD", null)).toBe("—");
   });
-  it("falls back to USD when currency is missing", () => {
-    expect(formatMoney(null, 12.5)).toMatch(/\$12\.50/);
+  it("never invents USD when currency is missing", () => {
+    expect(formatMoney(null, 12.5)).toBe("12.50");
   });
   it("formats a non-USD currency code", () => {
     expect(formatMoney("EUR", 10)).toMatch(/€|EUR/);
+  });
+  it("falls back to a plain number for an invalid currency code", () => {
+    expect(formatMoney("XX", 12.5)).toBe("12.50");
+    expect(formatMoney("TOOLONG", 7)).toBe("7.00");
+    expect(formatMoney("", 3)).toBe("3.00");
   });
 });

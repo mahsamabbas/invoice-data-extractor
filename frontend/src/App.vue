@@ -20,13 +20,19 @@ function onFileReady(next: File | null) {
 
 async function onExtract() {
   if (!file.value || loading.value) return;
+  const f = file.value;
   loading.value = true;
   error.value = null;
   result.value = null;
   try {
-    result.value = await extractInvoice(file.value);
+    const extracted = await extractInvoice(f);
+    if (file.value === f) {
+      result.value = extracted;
+    }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "Extraction failed";
+    if (file.value === f) {
+      error.value = err instanceof Error ? err.message : "Extraction failed";
+    }
   } finally {
     loading.value = false;
   }
