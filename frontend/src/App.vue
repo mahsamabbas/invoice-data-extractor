@@ -1,4 +1,36 @@
 <script setup lang="ts">
+import { computed, ref } from "vue";
+import DocumentStage from "./components/DocumentStage.vue";
+import ExtractionPanel from "./components/ExtractionPanel.vue";
+import { extractInvoice } from "./api";
+import type { InvoiceExtraction } from "./types";
+
+const file = ref<File | null>(null);
+const result = ref<InvoiceExtraction | null>(null);
+const loading = ref(false);
+const error = ref<string | null>(null);
+
+const canExtract = computed(() => file.value !== null && !loading.value);
+
+function onFileReady(next: File | null) {
+  file.value = next;
+  result.value = null;
+  error.value = null;
+}
+
+async function onExtract() {
+  if (!file.value || loading.value) return;
+  loading.value = true;
+  error.value = null;
+  result.value = null;
+  try {
+    result.value = await extractInvoice(file.value);
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : "Extraction failed";
+  } finally {
+    loading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -17,14 +49,21 @@
     </header>
 
     <main class="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2 lg:gap-10">
-      <section class="rounded-sm border border-[var(--color-line)] bg-white/70 p-5 backdrop-blur-sm">
-        <!-- Task 5: Dropzone + preview -->
-        <p class="text-slate-500">Document stage coming next</p>
-      </section>
-      <section class="rounded-sm border border-[var(--color-line)] bg-white/70 p-5 backdrop-blur-sm">
-        <!-- Task 5: Results -->
-        <p class="text-slate-500">Extraction readout coming next</p>
-      </section>
+      <div class="flex flex-col gap-4">
+        <DocumentStage @file-ready="onFileReady" />
+
+        <button
+          type="button"
+          class="brand relative w-full overflow-hidden rounded-sm bg-[var(--color-ink-deep)] px-6 py-3.5 text-lg font-semibold text-[var(--color-paper)] shadow-md transition disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:bg-[var(--color-ink)]"
+          :class="{ extracting: loading }"
+          :disabled="!canExtract"
+          @click="onExtract"
+        >
+          {{ loading ? "Extracting…" : "Extract invoice" }}
+        </button>
+      </div>
+
+      <ExtractionPanel :result="result" :loading="loading" :error="error" />
     </main>
   </div>
 </template>
