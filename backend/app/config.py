@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3006"
     max_upload_bytes: int = 5 * 1024 * 1024
     total_tolerance: float = 0.01
-    sample_invoice_path: str = ""  # resolved relative to repo in routes
+    sample_invoice_path: str = ""  # env SAMPLE_INVOICE_PATH; empty = repo samples/
 
 
 @lru_cache

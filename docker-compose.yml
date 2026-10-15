@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_VISION_MODEL: qwen2.5vl
+      CORS_ORIGINS: http://localhost:3006
+      SAMPLE_INVOICE_PATH: /samples/sample_invoice.png
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE: http://localhost:8006
+    ports:
+      - "3006:80"
+    depends_on:
+      - backend

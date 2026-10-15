@@ -14,6 +14,9 @@ ALLOWED = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
 
 
 def _sample_path() -> Path:
+    configured = get_settings().sample_invoice_path.strip()
+    if configured:
+        return Path(configured)
     # backend/app/routes.py → parents[2] = repo root
     return Path(__file__).resolve().parents[2] / "samples" / "sample_invoice.png"
 
