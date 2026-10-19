@@ -92,6 +92,42 @@ async def test_extract_unreadable_image_yields_flag_not_502():
 
 
 @pytest.mark.asyncio
+async def test_extract_unreadable_null_coerces_to_false():
+    """qwen2.5vl often emits unreadable: null on readable invoices; must not 502."""
+    payload = {
+        "message": {
+            "content": json.dumps(
+                {
+                    "vendor": "NORTHWIND SUPPLIES LLC",
+                    "invoice_number": "INV-1042",
+                    "currency": "USD",
+                    "line_items": [
+                        {
+                            "description": "A4 Copy Paper (case)",
+                            "quantity": "2",
+                            "unit_price": "12.50",
+                            "amount": "25.00",
+                        }
+                    ],
+                    "total": "25.00",
+                    "unreadable": None,
+                }
+            )
+        }
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    settings = Settings(ollama_base_url="http://ollama.test")
+    async with httpx.AsyncClient(transport=_mock_transport(handler)) as client:
+        out = await extract_invoice(b"fake-png", "image/png", settings, client=client)
+    assert out.vendor == "NORTHWIND SUPPLIES LLC"
+    assert out.unreadable is False
+    assert "unreadable_image" not in {f.code for f in out.flags}
+
+
+@pytest.mark.asyncio
 async def test_extract_bad_json_after_repair_is_502():
     calls = {"n": 0}
 

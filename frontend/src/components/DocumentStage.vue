@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
 import { fetchSampleBlob } from "../api";
+import ImageLightbox from "./ImageLightbox.vue";
 
 const emit = defineEmits<{
   "file-ready": [file: File | null];
@@ -13,6 +14,7 @@ const isDragOver = ref(false);
 const justAccepted = ref(false);
 const sampleLoading = ref(false);
 const localError = ref<string | null>(null);
+const lightboxOpen = ref(false);
 
 const currentFile = ref<File | null>(null);
 const previewUrl = ref<string | null>(null);
@@ -51,6 +53,7 @@ function acceptFile(file: File) {
 }
 
 function clearFile() {
+  lightboxOpen.value = false;
   revokePreview();
   currentFile.value = null;
   localError.value = null;
@@ -111,7 +114,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="group relative overflow-hidden rounded-sm border border-[var(--color-line)] bg-white/70 p-5 backdrop-blur-sm transition-shadow"
+    class="group relative rounded-sm border border-[var(--color-line)] bg-white/70 p-5 backdrop-blur-sm transition-shadow"
     :class="{ 'drop-accepted': justAccepted }"
   >
     <div class="mb-4 flex items-center justify-between">
@@ -181,14 +184,33 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="flex flex-col gap-3">
-      <div
-        class="relative overflow-hidden rounded-sm border border-[var(--color-line)] bg-[var(--color-slate)]/5"
+      <button
+        type="button"
+        class="group/preview relative overflow-hidden rounded-sm border border-[var(--color-line)] bg-[var(--color-slate)]/5 text-left"
+        title="Open full-screen preview"
+        @click="lightboxOpen = true"
       >
-        <img :src="previewUrl ?? undefined" alt="Invoice preview" class="max-h-80 w-full object-contain" />
-      </div>
+        <img
+          :src="previewUrl ?? undefined"
+          alt="Invoice preview"
+          class="max-h-80 w-full object-contain transition group-hover/preview:opacity-95"
+        />
+        <span
+          class="pointer-events-none absolute bottom-3 right-3 rounded-sm bg-[var(--color-slate)]/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white opacity-90"
+        >
+          Click to enlarge
+        </span>
+      </button>
       <div class="flex items-center justify-between gap-3">
         <p class="truncate text-sm text-slate-600">{{ currentFile?.name }}</p>
         <div class="flex shrink-0 gap-2">
+          <button
+            type="button"
+            class="rounded-sm border border-[var(--color-ink)]/30 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-deep)] transition hover:border-[var(--color-ink)] hover:bg-[var(--color-ink)]/[0.06]"
+            @click="lightboxOpen = true"
+          >
+            Full screen
+          </button>
           <button
             type="button"
             class="rounded-sm border border-[var(--color-line)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-[var(--color-ink)] hover:text-[var(--color-ink-deep)]"
@@ -208,5 +230,12 @@ onBeforeUnmount(() => {
     </div>
 
     <p v-if="localError" class="mt-3 text-sm font-medium text-red-600">{{ localError }}</p>
+
+    <ImageLightbox
+      v-if="lightboxOpen && previewUrl"
+      :src="previewUrl"
+      :filename="currentFile?.name"
+      @close="lightboxOpen = false"
+    />
   </div>
 </template>

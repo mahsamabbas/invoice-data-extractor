@@ -51,6 +51,8 @@ class InvoiceExtraction(BaseModel):
     invoice_number: str | None = None
     currency: str | None = None
     line_items: list[LineItem] = Field(default_factory=list)
+    subtotal: float | None = None
+    tax: float | None = None
     total: float | None = None
     flags: list[Flag] = Field(default_factory=list)
     unreadable: bool = False  # model hint; consumed by apply_flags then stripped from API if desired
@@ -62,10 +64,28 @@ class InvoiceExtraction(BaseModel):
             return []
         return value
 
-    @field_validator("total", mode="before")
+    @field_validator("subtotal", "tax", "total", mode="before")
     @classmethod
-    def _lenient_total(cls, value: object) -> object:
+    def _lenient_money_fields(cls, value: object) -> object:
         return _coerce_lenient_float(value)
+
+    @field_validator("unreadable", mode="before")
+    @classmethod
+    def _coerce_unreadable(cls, value: object) -> object:
+        # Vision models often emit null / junk instead of a clean boolean.
+        if value is None:
+            return False
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in {"true", "1", "yes"}:
+                return True
+            return False
+        # lists/dicts/other junk → treat as readable (false); flags still catch empties
+        return False
 
 
 class HealthOut(BaseModel):

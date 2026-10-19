@@ -61,3 +61,31 @@ def test_amount_derived_from_qty_price_for_sum_only():
         flags=[],
     )
     assert apply_flags(data).flags == []
+
+
+def test_tax_invoice_lines_plus_tax_matches_total():
+    """Williams-style tax invoice: line 500 + tax 50 = total 550 → no mismatch."""
+    data = InvoiceExtraction(
+        vendor="Williams Hospital",
+        invoice_number="1001",
+        currency="USD",
+        line_items=[LineItem(description="X-ray", quantity=1, unit_price=500.0, amount=500.0)],
+        subtotal=500.0,
+        tax=50.0,
+        total=550.0,
+        flags=[],
+    )
+    assert apply_flags(data).flags == []
+
+
+def test_tax_alone_reconciles_without_subtotal():
+    data = InvoiceExtraction(
+        vendor="Williams Hospital",
+        invoice_number="1001",
+        currency="USD",
+        line_items=[LineItem(description="X-ray", quantity=1, unit_price=500.0, amount=500.0)],
+        tax=50.0,
+        total=550.0,
+        flags=[],
+    )
+    assert apply_flags(data).flags == []

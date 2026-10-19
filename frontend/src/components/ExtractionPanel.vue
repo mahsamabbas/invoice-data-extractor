@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import type { InvoiceExtraction } from "../types";
 import { formatMoney } from "../lib/format";
+import { downloadExcel, downloadPdf } from "../lib/exportInvoice";
 import FlagStrip from "./FlagStrip.vue";
 
 const props = defineProps<{
@@ -11,40 +12,78 @@ const props = defineProps<{
 }>();
 
 const showJson = ref(false);
+const exportError = ref<string | null>(null);
 
 function toggleJson() {
   showJson.value = !showJson.value;
 }
 
-function cellMoney(currency: string | null | undefined, amount: number | null | undefined) {
-  return formatMoney(currency ?? null, amount ?? null);
+function onDownloadPdf() {
+  if (!props.result) return;
+  exportError.value = null;
+  try {
+    downloadPdf(props.result);
+  } catch (err) {
+    exportError.value = err instanceof Error ? err.message : "Could not create PDF";
+  }
 }
+
+function onDownloadExcel() {
+  if (!props.result) return;
+  exportError.value = null;
+  try {
+    downloadExcel(props.result);
+  } catch (err) {
+    exportError.value = err instanceof Error ? err.message : "Could not create Excel file";
+  }
+}
+
+function money(amount: number | null | undefined) {
+  return formatMoney(props.result?.currency ?? null, amount ?? null);
+}
+
+const fieldRows = computed(() => {
+  const r = props.result;
+  if (!r) return [];
+  return [
+    { label: "Vendor", value: r.vendor ?? "—", money: false, emphasize: true },
+    { label: "Invoice number", value: r.invoice_number ?? "—", money: false, emphasize: false },
+    { label: "Currency", value: r.currency ?? "—", money: false, emphasize: false },
+    { label: "Subtotal", value: money(r.subtotal), money: true, emphasize: false },
+    { label: "Tax", value: money(r.tax), money: true, emphasize: false },
+    { label: "Total", value: money(r.total), money: true, emphasize: true },
+  ];
+});
 </script>
 
 <template>
-  <div class="rounded-sm border border-[var(--color-line)] bg-white/70 p-5 backdrop-blur-sm">
-    <div class="mb-4 flex items-center justify-between">
-      <h2
-        class="brand text-xl text-[var(--color-ink-deep)]"
-        :class="{ extracting: props.loading }"
-      >
-        Extraction
-      </h2>
+  <div class="rounded-sm border border-[var(--color-line)] bg-white/80 p-5 shadow-[0_1px_0_rgba(15,23,42,0.04)] backdrop-blur-sm md:p-6">
+    <div class="mb-5 flex items-end justify-between gap-3 border-b border-[var(--color-line)] pb-4">
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-ink)]">
+          Results
+        </p>
+        <h2
+          class="brand mt-1 text-2xl text-[var(--color-ink-deep)]"
+          :class="{ extracting: props.loading }"
+        >
+          Extraction
+        </h2>
+      </div>
       <span
         v-if="props.loading"
-        class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-ink)]"
+        class="mb-1 shrink-0 rounded-sm bg-[var(--color-ink)]/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink)]"
       >
         Reading…
       </span>
       <span
         v-else-if="props.result"
-        class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-ink)]"
+        class="mb-1 shrink-0 rounded-sm bg-emerald-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700"
       >
         Done
       </span>
     </div>
 
-    <!-- Error state -->
     <div
       v-if="props.error"
       class="rounded-sm border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700"
@@ -52,91 +91,148 @@ function cellMoney(currency: string | null | undefined, amount: number | null | 
       {{ props.error }}
     </div>
 
-    <!-- Loading skeleton -->
-    <div v-else-if="props.loading" class="flex flex-col gap-4">
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div v-for="n in 4" :key="n" class="flex flex-col gap-2">
-          <div class="h-3 w-16 animate-pulse rounded-sm bg-[var(--color-line)]/70" />
-          <div class="h-5 w-full animate-pulse rounded-sm bg-[var(--color-line)]/50" />
-        </div>
+    <div v-else-if="props.loading" class="flex flex-col gap-3">
+      <div
+        v-for="n in 6"
+        :key="n"
+        class="flex items-center justify-between gap-4 border-b border-dashed border-[var(--color-line)]/70 py-3"
+      >
+        <div class="h-3 w-24 animate-pulse rounded-sm bg-[var(--color-line)]/70" />
+        <div class="h-4 w-40 animate-pulse rounded-sm bg-[var(--color-line)]/50" />
       </div>
-      <div class="flex flex-col gap-2">
-        <div v-for="n in 3" :key="n" class="h-8 w-full animate-pulse rounded-sm bg-[var(--color-line)]/40" />
-      </div>
+      <div class="mt-2 h-24 animate-pulse rounded-sm bg-[var(--color-line)]/35" />
     </div>
 
-    <!-- Empty state -->
     <div
       v-else-if="!props.result"
       class="flex min-h-64 flex-col items-center justify-center gap-2 rounded-sm border border-dashed border-[var(--color-line)] bg-[var(--color-paper)]/50 py-10 text-center"
     >
       <p class="font-semibold text-slate-500">No extraction yet</p>
       <p class="max-w-xs text-sm text-slate-400">
-        Upload or choose the sample invoice, then run Extract to see the fields here.
+        Upload or choose the sample invoice, then run Extract to see every field here.
       </p>
     </div>
 
-    <!-- Result -->
-    <div v-else class="flex flex-col gap-5">
-      <dl class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div class="flex flex-col gap-1">
-          <dt class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Vendor</dt>
-          <dd class="truncate text-base font-semibold text-[var(--color-slate)]">
-            {{ props.result.vendor ?? "—" }}
-          </dd>
+    <div v-else class="flex flex-col gap-6">
+      <!-- All scalar fields as full-width label | value rows -->
+      <section
+        aria-label="Invoice fields"
+        class="overflow-hidden rounded-sm border border-[var(--color-line)] bg-[var(--color-paper)]/40"
+      >
+        <div
+          v-for="(row, idx) in fieldRows"
+          :key="row.label"
+          class="grid grid-cols-1 gap-1 px-4 py-3.5 sm:grid-cols-[9.5rem_1fr] sm:items-baseline sm:gap-6"
+          :class="[
+            idx < fieldRows.length - 1 ? 'border-b border-[var(--color-line)]/80' : '',
+            idx % 2 === 1 ? 'bg-white/50' : '',
+            row.emphasize ? 'bg-[var(--color-ink)]/[0.03]' : '',
+          ]"
+        >
+          <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            {{ row.label }}
+          </p>
+          <p
+            class="min-w-0 break-words text-[var(--color-slate)]"
+            :class="
+              row.emphasize
+                ? 'brand text-xl font-semibold text-[var(--color-ink-deep)]'
+                : 'text-base font-semibold'
+            "
+          >
+            <span :class="row.money ? 'tabular-nums whitespace-nowrap' : ''">{{ row.value }}</span>
+          </p>
         </div>
-        <div class="flex flex-col gap-1">
-          <dt class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Invoice #</dt>
-          <dd class="truncate text-base font-semibold text-[var(--color-slate)]">
-            {{ props.result.invoice_number ?? "—" }}
-          </dd>
-        </div>
-        <div class="flex flex-col gap-1">
-          <dt class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Currency</dt>
-          <dd class="truncate text-base font-semibold text-[var(--color-slate)]">
-            {{ props.result.currency ?? "—" }}
-          </dd>
-        </div>
-        <div class="flex flex-col gap-1">
-          <dt class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Total</dt>
-          <dd class="brand truncate text-lg font-semibold text-[var(--color-ink-deep)]">
-            {{ cellMoney(props.result.currency, props.result.total) }}
-          </dd>
-        </div>
-      </dl>
+      </section>
 
-      <div v-if="props.result.line_items.length > 0" class="overflow-x-auto">
-        <table class="w-full border-collapse text-sm">
-          <thead>
-            <tr class="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-[0.12em] text-slate-400">
-              <th class="py-2 pr-3 font-semibold">Description</th>
-              <th class="py-2 px-3 text-right font-semibold">Qty</th>
-              <th class="py-2 px-3 text-right font-semibold">Unit price</th>
-              <th class="py-2 pl-3 text-right font-semibold">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="(item, idx) in props.result.line_items"
-              :key="idx"
-              class="border-b border-dashed border-[var(--color-line)]/80"
-              :class="idx % 2 === 1 ? 'bg-[var(--color-paper)]/50' : ''"
-            >
-              <td class="py-2 pr-3 text-[var(--color-slate)]">{{ item.description ?? "—" }}</td>
-              <td class="py-2 px-3 text-right tabular-nums text-slate-600">{{ item.quantity ?? "—" }}</td>
-              <td class="py-2 px-3 text-right tabular-nums text-slate-600">
-                {{ cellMoney(props.result.currency, item.unit_price) }}
-              </td>
-              <td class="py-2 pl-3 text-right tabular-nums font-semibold text-[var(--color-slate)]">
-                {{ cellMoney(props.result.currency, item.amount) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p v-else class="text-sm text-slate-400">No line items detected.</p>
+      <!-- Line items -->
+      <section aria-label="Line items">
+        <div class="mb-2 flex items-baseline justify-between gap-2">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            Line items
+          </p>
+          <p class="text-xs text-slate-400">
+            {{ props.result.line_items.length }}
+            {{ props.result.line_items.length === 1 ? "row" : "rows" }}
+          </p>
+        </div>
+
+        <div
+          v-if="props.result.line_items.length > 0"
+          class="overflow-x-auto rounded-sm border border-[var(--color-line)]"
+        >
+          <table class="w-full min-w-[22rem] border-collapse text-sm">
+            <thead>
+              <tr class="bg-[var(--color-paper)]/80 text-left text-[11px] uppercase tracking-[0.12em] text-slate-400">
+                <th class="px-3 py-2.5 font-semibold">Description</th>
+                <th class="px-3 py-2.5 text-right font-semibold">Qty</th>
+                <th class="px-3 py-2.5 text-right font-semibold">Unit price</th>
+                <th class="px-3 py-2.5 text-right font-semibold">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(item, idx) in props.result.line_items"
+                :key="idx"
+                class="border-t border-[var(--color-line)]/80"
+                :class="idx % 2 === 1 ? 'bg-[var(--color-paper)]/40' : 'bg-white/60'"
+              >
+                <td class="max-w-[16rem] px-3 py-2.5 break-words text-[var(--color-slate)]">
+                  {{ item.description ?? "—" }}
+                </td>
+                <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap text-slate-600">
+                  {{ item.quantity ?? "—" }}
+                </td>
+                <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap text-slate-600">
+                  {{ money(item.unit_price) }}
+                </td>
+                <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap font-semibold text-[var(--color-slate)]">
+                  {{ money(item.amount) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p
+          v-else
+          class="rounded-sm border border-dashed border-[var(--color-line)] px-3 py-4 text-sm text-slate-400"
+        >
+          No line items detected.
+        </p>
+      </section>
 
       <FlagStrip :flags="props.result.flags" />
+
+      <section
+        aria-label="Export"
+        class="flex flex-col gap-3 rounded-sm border border-[var(--color-line)] bg-[var(--color-paper)]/50 p-4"
+      >
+        <div>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            Take away
+          </p>
+          <p class="mt-1 text-sm text-slate-500">
+            Download a regenerated invoice PDF or a spreadsheet of these fields.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="rounded-sm bg-[var(--color-ink-deep)] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-paper)] transition hover:bg-[var(--color-ink)]"
+            @click="onDownloadPdf"
+          >
+            Download PDF
+          </button>
+          <button
+            type="button"
+            class="rounded-sm border border-[var(--color-ink)]/40 bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-deep)] transition hover:border-[var(--color-ink)] hover:bg-[var(--color-ink)]/[0.06]"
+            @click="onDownloadExcel"
+          >
+            Download Excel
+          </button>
+        </div>
+        <p v-if="exportError" class="text-sm font-medium text-red-600">{{ exportError }}</p>
+      </section>
 
       <div>
         <button

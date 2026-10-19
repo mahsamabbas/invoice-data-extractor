@@ -15,6 +15,8 @@ export interface InvoiceExtraction {
   invoice_number: string | null;
   currency: string | null;
   line_items: LineItem[];
+  subtotal: number | null;
+  tax: number | null;
   total: number | null;
   flags: Flag[];
 }
